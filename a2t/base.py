@@ -95,6 +95,7 @@ class EntailmentClassifier(Classifier):
     """
 
     def __init__(
+        #configs
         self,
         pretrained_model: str = "roberta-large-mnli",
         use_cuda: bool = True,
