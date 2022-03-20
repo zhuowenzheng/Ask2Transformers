@@ -8,6 +8,8 @@ from typing import List
 import numpy as np
 import torch
 
+# all the basic methods to perform the inference
+# 使用tqdm(是一种python的内存条:主要是方便显示内容进度的)
 try:
     from tqdm import tqdm
 
@@ -15,23 +17,24 @@ try:
 except ImportError:
     _use_tqdm = False
 
+# transformers(直接引入相关的包进行使用)
 from transformers import AutoConfig, AutoTokenizer, AutoModelForSequenceClassification
 
 from .tasks import Features, Task
 
 try:
     import transformers
-
+    # 没有transformer相关的包就报错
     transformers.logging.set_verbosity_error()
 except ImportError:
     pass
 
-
+# softmax
 def np_softmax(x, dim=-1):
     e = np.exp(x)
     return e / np.sum(e, axis=dim, keepdims=True)
 
-
+# sigmoid
 def np_sigmoid(x, dim=-1):
     return 1 / (1 + np.exp(-x))
 
@@ -48,18 +51,26 @@ class Classifier(object):
         self.labels = labels
         self.use_cuda = use_cuda
         self.half = half
+        # verbose:输出日志
         self.verbose = verbose
 
         # Supress stdout printing for model downloads
         if not verbose:
+            # 没有日志就自己打开一个写进去 + 加载预模型
             sys.stdout = open(os.devnull, "w")
             self._initialize(pretrained_model)
             sys.stdout = sys.__stdout__
         else:
+            # 有了日志就直接加载模型就好
             self._initialize(pretrained_model)
 
         self.model = self.model.to(self.device)
         self.model = self.model.eval()
+        # model.eval() is a kind of switch for some specific layers/parts of the model that behave
+        # differently during training and inference (evaluating) time. For example, Dropouts Layers,
+        # BatchNorm Layers etc. You need to turn off them during model evaluation, and .eval() will
+        # do it for you. In addition, the common practice for evaluating/validation is using
+        # torch.no_grad() in pair with model.eval() to turn off gradients computation:
         if self.use_cuda and self.half and torch.cuda.is_available():
             self.model = self.model.half()
 
@@ -87,8 +98,11 @@ class EntailmentClassifier(Classifier):
         self,
         pretrained_model: str = "roberta-large-mnli",
         use_cuda: bool = True,
+        # use half precision if possible
         half: bool = False,
+        # output log information
         verbose: bool = True,
+        # tqdm是一个小工具,显示相关进度条的
         use_tqdm: bool = True,
         **kwargs
     ):
@@ -120,9 +134,9 @@ class EntailmentClassifier(Classifier):
         application_type: str = "prediction",
     ) -> np.ndarray:
         """
-
         Args:
             output (ndarray): (batch_size, n_labels) The predicted probabilities.
+            //最开始的门槛(就是可能达不到就被自动遗弃了)
             threshold (float): The threshold value to apply.
             ignore_negative_prediction (bool): Ignore the negative prediction probabilites. Default to True.
             application_type (str): How to apply the threshold: Options:
